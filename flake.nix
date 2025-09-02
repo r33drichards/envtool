@@ -26,6 +26,10 @@
         in
         {
           packages.default = app;
+          apps.default = {
+            type = "app";
+            program = "${app}/bin/envtool";
+          };
           devShells.default = callPackage ./shell.nix {
             inherit (gomod2nix.legacyPackages.${system}) mkGoEnv gomod2nix;
           };
