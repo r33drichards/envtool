@@ -8,6 +8,11 @@ VERSION:=$(if $(strip $(GIT_VERSION)),$(GIT_VERSION),dev)
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
+.PHONY: tidy
+tidy:
+	go mod tidy
+	gomod2nix
+
 # Build the application
 build:
 	go build $(LDFLAGS) -o $(BINARY_NAME) main.go
