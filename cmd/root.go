@@ -31,11 +31,11 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	
+
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.envtool.yaml)")
 	rootCmd.PersistentFlags().StringVar(&envFile, "env-file", ".env", "path to .env file")
-	
+
 	// Bind flags to viper
 	viper.BindPFlag("env-file", rootCmd.PersistentFlags().Lookup("env-file"))
 }
@@ -46,13 +46,10 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if err == nil && home != "" {
+			viper.AddConfigPath(home)
+			viper.SetConfigName(".envtool")
 		}
-
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".envtool")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

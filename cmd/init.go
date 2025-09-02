@@ -40,7 +40,7 @@ You can also specify custom paths for bash and zsh configuration files
 using the --bashrc and --zshrc flags.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fileManager := &shell.DefaultFileManager{}
-		
+
 		// Determine which shells to update
 		updateBash := true
 		updateZsh := true
@@ -50,31 +50,45 @@ using the --bashrc and --zshrc flags.`,
 		if zshOnly && !bashOnly {
 			updateBash = false
 		}
-		
+
 		// If user passed positional args but selected both shells, return error
 		if len(args) > 0 && updateBash && updateZsh {
 			return fmt.Errorf("positional rc/env paths are supported only when selecting exactly one shell with --bash or --zsh")
 		}
-		
+
 		// Optional env-file to embed in hook
 		envPathFromArgs := ""
-		
+
 		// If user-only flag is set, use user-specific config files
 		if userOnly {
 			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("failed to get user home directory: %w", err)
-			}
-			
-			// Only override if not explicitly set via flags
-			if bashrcPath == defaultBashrcPath {
-				bashrcPath = filepath.Join(homeDir, ".bashrc")
-			}
-			if zshrcPath == defaultZshrcPath {
-				zshrcPath = filepath.Join(homeDir, ".zshrc")
+			if err == nil && homeDir != "" {
+				// Only override if not explicitly set via flags
+				if bashrcPath == defaultBashrcPath {
+					bashrcPath = filepath.Join(homeDir, ".bashrc")
+				}
+				if zshrcPath == defaultZshrcPath {
+					zshrcPath = filepath.Join(homeDir, ".zshrc")
+				}
+			} else {
+				// HOME is unavailable; require explicit rc paths in --user mode
+				if bashOnly && !zshOnly {
+					if bashrcPath == defaultBashrcPath {
+						return fmt.Errorf("--user requires HOME or explicit --bashrc when HOME is unset")
+					}
+				} else if zshOnly && !bashOnly {
+					if zshrcPath == defaultZshrcPath {
+						return fmt.Errorf("--user requires HOME or explicit --zshrc when HOME is unset")
+					}
+				} else {
+					// Both shells selected; require at least one explicit path
+					if bashrcPath == defaultBashrcPath && zshrcPath == defaultZshrcPath {
+						return fmt.Errorf("--user requires HOME or explicit --bashrc/--zshrc paths when HOME is unset")
+					}
+				}
 			}
 		}
-		
+
 		// Handle positional args for exactly one shell
 		if updateBash && !updateZsh {
 			if len(args) >= 1 {
@@ -91,7 +105,7 @@ using the --bashrc and --zshrc flags.`,
 				envPathFromArgs = args[1]
 			}
 		}
-		
+
 		// Determine env-file to embed in hook
 		envPathForHook := strings.TrimSpace(envPathFromArgs)
 		if envPathForHook == "" {
@@ -104,7 +118,7 @@ using the --bashrc and --zshrc flags.`,
 		if envPathForHook != "" {
 			envFlag = fmt.Sprintf(" --env-file %s", envPathForHook)
 		}
-		
+
 		// Build hook contents dynamically
 		bashHook := fmt.Sprintf(`
 _envtool_hook() {
@@ -133,54 +147,54 @@ if [[ -z "${chpwd_functions[(r)_envtool_hook]+1}" ]]; then
   chpwd_functions=( _envtool_hook ${chpwd_functions[@]} )
 fi
 `, envFlag)
-		
+
 		// Setup for bash
 		if updateBash {
 			exists, err := fileManager.FileExists(bashrcPath)
 			if err != nil {
 				return fmt.Errorf("failed to check bash configuration: %w", err)
 			}
-			
+
 			// Create parent directory if it doesn't exist
 			if !exists {
 				dir := filepath.Dir(bashrcPath)
 				if err := os.MkdirAll(dir, 0755); err != nil {
 					return fmt.Errorf("failed to create directory for bash configuration: %w", err)
 				}
-				
+
 				if err := fileManager.WriteFile(bashrcPath, ""); err != nil {
 					return fmt.Errorf("failed to create bash configuration: %w", err)
 				}
 			}
-			
+
 			if err := fileManager.AppendToFile(bashrcPath, bashHook); err != nil {
 				return fmt.Errorf("failed to update bash configuration: %w", err)
 			}
 		}
-		
+
 		// Setup for zsh
 		if updateZsh {
 			exists, err := fileManager.FileExists(zshrcPath)
 			if err != nil {
 				return fmt.Errorf("failed to check zsh configuration: %w", err)
 			}
-			
+
 			if !exists {
 				dir := filepath.Dir(zshrcPath)
 				if err := os.MkdirAll(dir, 0755); err != nil {
 					return fmt.Errorf("failed to create directory for zsh configuration: %w", err)
 				}
-				
+
 				if err := fileManager.WriteFile(zshrcPath, ""); err != nil {
 					return fmt.Errorf("failed to create zsh configuration: %w", err)
 				}
 			}
-			
+
 			if err := fileManager.AppendToFile(zshrcPath, zshHook); err != nil {
 				return fmt.Errorf("failed to update zsh configuration: %w", err)
 			}
 		}
-		
+
 		fmt.Printf("Shell configurations updated successfully:\n")
 		if updateBash {
 			fmt.Printf("- Bash: %s\n", bashrcPath)
@@ -194,14 +208,14 @@ fi
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	
+
 	// Add flags for customizing configuration paths
 	initCmd.Flags().StringVar(&bashrcPath, "bashrc", defaultBashrcPath, "Path to bash configuration file")
 	initCmd.Flags().StringVar(&zshrcPath, "zshrc", defaultZshrcPath, "Path to zsh configuration file")
 	initCmd.Flags().BoolVar(&userOnly, "user", false, "Modify user-specific configuration files instead of system-wide")
 	initCmd.Flags().BoolVar(&bashOnly, "bash", false, "Only update bash configuration (default: both shells)")
 	initCmd.Flags().BoolVar(&zshOnly, "zsh", false, "Only update zsh configuration (default: both shells)")
-	
+
 	// Bind to viper for config file support
 	viper.BindPFlag("init.bashrc", initCmd.Flags().Lookup("bashrc"))
 	viper.BindPFlag("init.zshrc", initCmd.Flags().Lookup("zshrc"))

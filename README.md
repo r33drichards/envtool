@@ -74,7 +74,8 @@ envtool init --zsh
 #   envtool init --zsh <rc_path> [env_file]
 # Examples:
 #   Write bash hook to /etc/bashrc using /path/to/.env:
-sudo envtool init --bash /etc/bashrc /path/to/.env
+sudo envtool init --bash /etc/bashrc /etc/incus-env.env
+
 #   Write zsh hook to ~/.zshrc using default .env from config:
 envtool init --zsh ~/.zshrc
 ```
